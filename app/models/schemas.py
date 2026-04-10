@@ -17,7 +17,6 @@ class AnalysisResult(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    session_id: str
     document_context: str = ""
 
 

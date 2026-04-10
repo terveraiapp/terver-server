@@ -70,19 +70,14 @@ def test_analysis_result_with_categories():
 
 
 def test_chat_request_required_fields():
-    req = ChatRequest(
-        message="Who owns this land?",
-        session_id="550e8400-e29b-41d4-a716-446655440000"
-    )
+    req = ChatRequest(message="Who owns this land?")
     assert req.message == "Who owns this land?"
-    assert req.session_id == "550e8400-e29b-41d4-a716-446655440000"
     assert req.document_context == ""
 
 
 def test_chat_request_with_context():
     req = ChatRequest(
         message="Who owns this land?",
-        session_id="550e8400-e29b-41d4-a716-446655440000",
         document_context="Land deed from 2020"
     )
     assert req.document_context == "Land deed from 2020"
@@ -90,7 +85,7 @@ def test_chat_request_with_context():
 
 def test_chat_request_missing_required_field():
     with pytest.raises(ValidationError):
-        ChatRequest(message="Who owns this land?")
+        ChatRequest()
 
 
 def test_session_created():

@@ -41,12 +41,16 @@ async def analyze_document(file: UploadFile = File(...)):
     async def event_stream():
         yield f"data: {json.dumps({'type': 'session', 'session_id': session_id, 'document_name': filename})}\n\n"
         full_response = ""
-        async for chunk in llm.astream(messages):
-            token = chunk.content if hasattr(chunk, "content") else str(chunk)
-            if token:
-                full_response += token
-                yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'raw': full_response})}\n\n"
+        try:
+            async for chunk in llm.astream(messages):
+                raw = chunk.content if hasattr(chunk, "content") else chunk
+                token = raw if isinstance(raw, str) else (raw[0].get("text", "") if isinstance(raw, list) and raw else "")
+                if token:
+                    full_response += token
+                    yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'raw': full_response})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
     return StreamingResponse(
         event_stream(),

@@ -33,7 +33,6 @@ def test_chat_streams_response():
                 "/chat/550e8400-e29b-41d4-a716-446655440000",
                 json={
                     "message": "Is this document safe?",
-                    "session_id": "550e8400-e29b-41d4-a716-446655440000",
                     "document_context": "Risk: HIGH"
                 },
             )

@@ -6,7 +6,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 
 from app.agents.prompts import AMBERLYN_SYSTEM_PROMPT
-from app.agents.memory import get_history
+from app.agents.memory import get_messages, add_message
 
 
 class AmberlynState(TypedDict):
@@ -50,8 +50,7 @@ def build_amberlyn_graph(llm: BaseChatModel):
 
 
 def load_state_from_history(session_id: str, document_context: str) -> AmberlynState:
-    history = get_history(session_id)
-    messages = history.messages
+    messages = get_messages(session_id)
     return AmberlynState(
         messages=messages,
         document_context=document_context,
@@ -61,5 +60,4 @@ def load_state_from_history(session_id: str, document_context: str) -> AmberlynS
 
 
 def persist_message(session_id: str, message: BaseMessage) -> None:
-    history = get_history(session_id)
-    history.add_message(message)
+    add_message(session_id, message)

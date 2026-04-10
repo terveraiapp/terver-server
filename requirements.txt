@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+python-multipart
+anthropic
+langchain
+langchain-google-genai
+langchain-anthropic
+langchain-postgres
+langgraph
+psycopg[binary]
+python-dotenv
+sse-starlette
+pytest
+pytest-asyncio
+httpx

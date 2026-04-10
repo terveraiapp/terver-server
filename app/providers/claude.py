@@ -10,7 +10,7 @@ def get_claude_llm() -> ChatAnthropic:
     Requires ANTHROPIC_API_KEY environment variable.
     """
     return ChatAnthropic(
-        model="claude-opus-4-6",
+        model="claude-sonnet-4-6",
         api_key=os.environ["ANTHROPIC_API_KEY"],
         max_tokens=16000,
         temperature=0.1,

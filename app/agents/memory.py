@@ -8,8 +8,10 @@ TABLE_NAME = "amberlyn_chat_history"
 
 def _get_db_url() -> str | None:
     url = os.environ.get("DATABASE_URL", "")
-    if not url or "ep-xxx" in url or "password" in url:
+    # Treat missing or obviously placeholder values as unconfigured
+    if not url or "ep-xxx" in url or url.endswith("password@"):
         return None
+    # Strip SQLAlchemy driver prefix if present; psycopg wants plain postgresql://
     return url.replace("postgresql+psycopg://", "postgresql://")
 
 

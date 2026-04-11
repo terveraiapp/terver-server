@@ -15,6 +15,7 @@ from app.agents.memory import ensure_tables_exist
 async def lifespan(app: FastAPI):
     try:
         ensure_tables_exist()
+        print("INFO: Database tables ready.")
     except Exception as e:
         print(f"WARNING: DB init failed ({e}). Chat persistence disabled — set DATABASE_URL to enable.")
     yield

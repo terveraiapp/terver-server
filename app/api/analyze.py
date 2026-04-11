@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import StreamingResponse
@@ -11,6 +12,21 @@ from app.agents.prompts import ANALYSIS_SYSTEM_PROMPT
 router = APIRouter()
 
 
+def _build_content_block(mime_type: str, b64_content: str) -> dict:
+    provider = os.environ.get("ACTIVE_PROVIDER", "gemini").lower()
+    # Claude uses Anthropic's document block for PDFs; image_url for images
+    if provider == "claude" and mime_type == "application/pdf":
+        return {
+            "type": "document",
+            "source": {"type": "base64", "media_type": mime_type, "data": b64_content},
+        }
+    # Gemini (and Claude for images) accept data-URI image_url for all file types
+    return {
+        "type": "image_url",
+        "image_url": {"url": f"data:{mime_type};base64,{b64_content}"},
+    }
+
+
 @router.post("/analyze")
 async def analyze_document(file: UploadFile = File(...)):
     session_id = str(uuid.uuid4())
@@ -18,17 +34,7 @@ async def analyze_document(file: UploadFile = File(...)):
     filename = file.filename or "document"
 
     llm = get_llm()
-
-    if mime_type == "application/pdf":
-        content_block = {
-            "type": "document",
-            "source": {"type": "base64", "media_type": mime_type, "data": b64_content},
-        }
-    else:
-        content_block = {
-            "type": "image_url",
-            "image_url": {"url": f"data:{mime_type};base64,{b64_content}"},
-        }
+    content_block = _build_content_block(mime_type, b64_content)
 
     messages = [
         SystemMessage(content=ANALYSIS_SYSTEM_PROMPT),
@@ -50,7 +56,16 @@ async def analyze_document(file: UploadFile = File(...)):
                     yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
             yield f"data: {json.dumps({'type': 'done', 'raw': full_response})}\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            msg = str(e)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                clean = "API quota exceeded. Please wait a moment and try again."
+            elif "401" in msg or "API_KEY" in msg:
+                clean = "Invalid API key. Please check your GEMINI_API_KEY."
+            elif "404" in msg or "NOT_FOUND" in msg:
+                clean = "Analysis failed. Please try again."
+            else:
+                clean = "Analysis failed. Please try again."
+            yield f"data: {json.dumps({'type': 'error', 'message': clean})}\n\n"
 
     return StreamingResponse(
         event_stream(),

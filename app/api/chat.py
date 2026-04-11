@@ -41,18 +41,20 @@ async def chat_with_amberlyn(session_id: str, request: ChatRequest):
         full_response = ""
         try:
             async for event in graph.astream(state, stream_mode="messages"):
-                if isinstance(event, tuple):
-                    _, payload = event
-                    if hasattr(payload, "content") and payload.content:
-                        full_response += payload.content
-                        yield f"data: {json.dumps({'type': 'token', 'token': payload.content})}\n\n"
-                elif hasattr(event, "content") and event.content:
-                    full_response += event.content
-                    yield f"data: {json.dumps({'type': 'token', 'token': event.content})}\n\n"
+                msg = event[0] if isinstance(event, tuple) else event
+                content = msg.content if hasattr(msg, "content") else ""
+                if isinstance(content, str) and content:
+                    full_response += content
+                    yield f"data: {json.dumps({'type': 'token', 'token': content})}\n\n"
             await asyncio.to_thread(persist_message, session_id, AIMessage(content=full_response))
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            msg = str(e)
+            if "429" in msg or "quota" in msg.lower() or "rate" in msg.lower():
+                clean = "API quota exceeded. Please wait a moment and try again."
+            else:
+                clean = "Something went wrong. Please try again."
+            yield f"data: {json.dumps({'type': 'error', 'message': clean})}\n\n"
 
     return StreamingResponse(
         event_stream(),

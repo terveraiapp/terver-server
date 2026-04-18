@@ -12,6 +12,7 @@ from app.agents.memory import get_messages, add_message
 class AmberlynState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     document_context: str
+    raw_document_text: str
     session_id: str
     summary: str
 
@@ -35,6 +36,7 @@ def build_amberlyn_graph(llm: BaseChatModel):
     def chat_node(state: AmberlynState) -> dict:
         system_content = AMBERLYN_SYSTEM_PROMPT.format(
             document_context=state.get("document_context", "No document analysed yet."),
+            raw_document_text=state.get("raw_document_text", "") or "Not available for this document type.",
             summary=state.get("summary", "No previous conversation."),
         )
         response = llm.invoke([SystemMessage(content=system_content)] + state["messages"])
@@ -49,11 +51,12 @@ def build_amberlyn_graph(llm: BaseChatModel):
     return graph.compile()
 
 
-def load_state_from_history(session_id: str, document_context: str) -> AmberlynState:
+def load_state_from_history(session_id: str, document_context: str, raw_document_text: str = "") -> AmberlynState:
     messages = get_messages(session_id)
     return AmberlynState(
         messages=messages,
         document_context=document_context,
+        raw_document_text=raw_document_text,
         session_id=session_id,
         summary="",
     )

@@ -3,6 +3,23 @@ import io
 import mimetypes
 from fastapi import UploadFile, HTTPException
 
+MAX_TEXT_CHARS = 60_000  # cap per document to keep prompts manageable
+
+
+def extract_pdf_text(content: bytes) -> str:
+    """Extract the text layer from a PDF. Returns empty string for image-only scans."""
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(content))
+        pages = []
+        for i, page in enumerate(reader.pages):
+            text = page.extract_text() or ""
+            if text.strip():
+                pages.append(f"[Page {i + 1}]\n{text.strip()}")
+        return "\n\n".join(pages)
+    except Exception:
+        return ""
+
 ALLOWED_MIME_TYPES = {
     "application/pdf",
     "image/jpeg",
@@ -37,11 +54,11 @@ def _extract_docx_text(content: bytes) -> str:
         raise HTTPException(status_code=422, detail=f"Could not read Word document: {e}")
 
 
-async def process_upload(file: UploadFile) -> tuple[str, str]:
+async def process_upload(file: UploadFile) -> tuple[str, str, str]:
     """
-    Returns (payload, mime_type).
-    - For binary files (PDF/image): payload is base64-encoded bytes.
-    - For Word docs: payload is extracted plain text, mime_type is 'text/plain'.
+    Returns (payload, mime_type, raw_text).
+    - For binary files (PDF/image): payload is base64, raw_text is extracted text layer (empty for images).
+    - For Word docs: payload is extracted text, mime_type is 'text/plain', raw_text same as payload.
     """
     content = await file.read()
 
@@ -66,6 +83,10 @@ async def process_upload(file: UploadFile) -> tuple[str, str]:
 
     if mime_type in DOCX_MIME_TYPES:
         text = _extract_docx_text(content)
-        return text, "text/plain"
+        return text, "text/plain", text[:MAX_TEXT_CHARS]
 
-    return base64.b64encode(content).decode("utf-8"), mime_type
+    raw_text = ""
+    if mime_type == "application/pdf":
+        raw_text = extract_pdf_text(content)[:MAX_TEXT_CHARS]
+
+    return base64.b64encode(content).decode("utf-8"), mime_type, raw_text

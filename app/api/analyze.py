@@ -8,6 +8,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.services.document import process_upload
 from app.providers import get_llm
 from app.agents.prompts import ANALYSIS_SYSTEM_PROMPT
+from app.agents.session_store import store_document_text
 
 router = APIRouter()
 
@@ -60,8 +61,12 @@ def _build_content_blocks(mime_type: str, payload: str) -> list[dict]:
 @router.post("/analyze")
 async def analyze_document(file: UploadFile = File(...)):
     session_id = str(uuid.uuid4())
-    payload, mime_type = await process_upload(file)
+    payload, mime_type, raw_text = await process_upload(file)
     filename = file.filename or "document"
+
+    # Store the raw document text so Amberlyn can quote exact lines in chat
+    doc_label = f"=== {filename} ===\n\n"
+    store_document_text(session_id, doc_label + (raw_text or "(Visual document — no text layer extracted)"))
 
     llm = get_llm()
     content_blocks = _build_content_blocks(mime_type, payload)

@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from app.models.schemas import ChatRequest
 from app.providers import get_llm
 from app.agents.amberlyn import build_amberlyn_graph, load_state_from_history, persist_message
+from app.agents.session_store import get_document_text
 
 router = APIRouter()
 _graph_cache: dict = {}
@@ -28,10 +29,12 @@ def _get_graph() -> object:
 async def chat_with_amberlyn(session_id: str, request: ChatRequest):
     graph = _get_graph()
 
+    raw_text = get_document_text(session_id)
     state = await asyncio.to_thread(
         load_state_from_history,
         session_id,
         request.document_context,
+        raw_text,
     )
     user_message = HumanMessage(content=request.message)
     state["messages"] = list(state["messages"]) + [user_message]

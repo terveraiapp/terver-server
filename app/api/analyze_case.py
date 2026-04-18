@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.services.document import process_upload
 from app.providers import get_llm
 from app.agents.prompts import CASE_ANALYSIS_SYSTEM_PROMPT
+from app.agents.session_store import store_document_text
 
 router = APIRouter()
 
@@ -49,16 +50,22 @@ async def analyze_case(files: List[UploadFile] = File(...)):
     filenames = [f.filename or f"document_{i+1}" for i, f in enumerate(files)]
 
     # Process all uploads first so we can fail fast before streaming
-    processed: list[tuple[str, str, str]] = []  # (filename, payload, mime_type)
+    processed: list[tuple[str, str, str, str]] = []  # (filename, payload, mime_type, raw_text)
     for file in files:
-        payload, mime_type = await process_upload(file)
-        processed.append((file.filename or "document", payload, mime_type))
+        payload, mime_type, raw_text = await process_upload(file)
+        processed.append((file.filename or "document", payload, mime_type, raw_text))
 
     llm = get_llm()
 
+    # Store concatenated raw text for all docs so Amberlyn can quote exact lines in chat
+    text_sections = []
+    for fname, _, _, raw_text in processed:
+        text_sections.append(f"=== {fname} ===\n\n{raw_text or '(Visual document — no text layer extracted)'}")
+    store_document_text(session_id, "\n\n".join(text_sections))
+
     # Build one big HumanMessage with all documents as content blocks
     content_blocks: list[dict] = []
-    for filename, payload, mime_type in processed:
+    for filename, payload, mime_type, _ in processed:
         content_blocks.extend(_file_content_blocks(filename, mime_type, payload))
 
     content_blocks.append({

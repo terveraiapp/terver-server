@@ -18,7 +18,24 @@ def _build_content_blocks(mime_type: str, payload: str) -> list[dict]:
     if mime_type == "text/plain":
         return [
             {"type": "text", "text": f"Document contents (extracted from Word file):\n\n{payload}"},
-            {"type": "text", "text": "Analyse this property document and return the JSON risk assessment as instructed. Note: this is a Word document so layout/signature analysis is not possible — focus on the textual content."},
+            {"type": "text", "text": (
+                "Analyse this property document and return the JSON risk assessment as instructed.\n\n"
+                "This document was submitted as a Word file, so pixel-level layout and ink-signature inspection "
+                "are not available. You MUST still perform a FULL and RIGOROUS assessment using the text alone. "
+                "Specifically:\n"
+                "- Ownership Integrity: trace every named party, date, and transaction reference. Flag any gap, "
+                "contradiction, or missing link in the chain of title.\n"
+                "- Document Completeness: identify every field that is present, ambiguous, or absent. A missing "
+                "signature clause in the text is still a FAIL — note it explicitly.\n"
+                "- Registration Status: look for deed/registry numbers, stamp duty mentions, Land Commission "
+                "references. Absence of any of these is a red flag.\n"
+                "- Boundary & Survey: extract and cross-check all plot numbers, survey references, acreage figures, "
+                "and boundary descriptions. Inconsistencies or vague descriptions must be flagged.\n"
+                "- Fraud Indicators: look for internal contradictions in dates or parties, copy-paste artefacts, "
+                "unusually vague language, missing consideration amounts, or clauses that override standard protections.\n\n"
+                "Do not soften findings because the source is a Word document. Apply exactly the same rigour "
+                "as you would to a scanned deed. Return ONLY valid JSON."
+            )},
         ]
 
     provider = os.environ.get("ACTIVE_PROVIDER", "gemini").lower()

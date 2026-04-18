@@ -12,36 +12,46 @@ from app.agents.prompts import ANALYSIS_SYSTEM_PROMPT
 router = APIRouter()
 
 
-def _build_content_block(mime_type: str, b64_content: str) -> dict:
+def _build_content_blocks(mime_type: str, payload: str) -> list[dict]:
+    """Return the list of content blocks for the HumanMessage."""
+    # Word docs come back as extracted plain text
+    if mime_type == "text/plain":
+        return [
+            {"type": "text", "text": f"Document contents (extracted from Word file):\n\n{payload}"},
+            {"type": "text", "text": "Analyse this property document and return the JSON risk assessment as instructed. Note: this is a Word document so layout/signature analysis is not possible — focus on the textual content."},
+        ]
+
     provider = os.environ.get("ACTIVE_PROVIDER", "gemini").lower()
-    # Claude uses Anthropic's document block for PDFs; image_url for images
+    # Claude uses Anthropic's document block for PDFs
     if provider == "claude" and mime_type == "application/pdf":
-        return {
+        file_block: dict = {
             "type": "document",
-            "source": {"type": "base64", "media_type": mime_type, "data": b64_content},
+            "source": {"type": "base64", "media_type": mime_type, "data": payload},
         }
-    # Gemini (and Claude for images) accept data-URI image_url for all file types
-    return {
-        "type": "image_url",
-        "image_url": {"url": f"data:{mime_type};base64,{b64_content}"},
-    }
+    else:
+        file_block = {
+            "type": "image_url",
+            "image_url": {"url": f"data:{mime_type};base64,{payload}"},
+        }
+
+    return [
+        file_block,
+        {"type": "text", "text": "Analyse this property document and return the JSON risk assessment as instructed."},
+    ]
 
 
 @router.post("/analyze")
 async def analyze_document(file: UploadFile = File(...)):
     session_id = str(uuid.uuid4())
-    b64_content, mime_type = await process_upload(file)
+    payload, mime_type = await process_upload(file)
     filename = file.filename or "document"
 
     llm = get_llm()
-    content_block = _build_content_block(mime_type, b64_content)
+    content_blocks = _build_content_blocks(mime_type, payload)
 
     messages = [
         SystemMessage(content=ANALYSIS_SYSTEM_PROMPT),
-        HumanMessage(content=[
-            content_block,
-            {"type": "text", "text": "Analyse this property document and return the JSON risk assessment as instructed."},
-        ]),
+        HumanMessage(content=content_blocks),
     ]
 
     async def event_stream():

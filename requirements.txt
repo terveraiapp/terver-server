@@ -13,3 +13,4 @@ sse-starlette
 pytest
 pytest-asyncio
 httpx
+python-docx

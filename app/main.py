@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.api.analyze import router as analyze_router
+from app.api.analyze_case import router as analyze_case_router
 from app.api.chat import router as chat_router
 from app.agents.memory import ensure_tables_exist
 
@@ -55,6 +56,7 @@ app.add_middleware(
 )
 
 app.include_router(analyze_router)
+app.include_router(analyze_case_router)
 app.include_router(chat_router)
 
 

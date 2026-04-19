@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from typing import List
@@ -15,6 +16,18 @@ from app.agents.session_store import store_document_text
 
 log = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _extract_json(text: str) -> str:
+    """Strip markdown fences and isolate the JSON object from LLM output."""
+    text = text.strip()
+    fenced = re.match(r'^```(?:json)?\s*([\s\S]*?)\s*```$', text, re.DOTALL)
+    if fenced:
+        return fenced.group(1).strip()
+    start, end = text.find('{'), text.rfind('}')
+    if start != -1 and end != -1:
+        return text[start:end + 1]
+    return text
 
 
 def _file_content_blocks(filename: str, mime_type: str, payload: str) -> list[dict]:
@@ -150,7 +163,11 @@ async def analyze_case(files: List[UploadFile] = File(...)):
                 "Case LLM done: session=%s tokens=%d response_chars=%d llm_ms=%.0f total_ms=%.0f",
                 session_id, token_count, len(full_response), llm_elapsed, total_elapsed,
             )
-            yield f"data: {json.dumps({'type': 'done', 'raw': full_response})}\n\n"
+            clean = _extract_json(full_response)
+            if clean != full_response:
+                log.info("JSON extracted from LLM wrapper (original %d chars -> %d chars) — session=%s",
+                         len(full_response), len(clean), session_id)
+            yield f"data: {json.dumps({'type': 'done', 'raw': clean})}\n\n"
 
         except Exception as e:
             elapsed = (time.perf_counter() - t0) * 1000
